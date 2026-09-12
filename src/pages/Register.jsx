@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { User, Mail, Lock, Globe, ArrowRight, ArrowLeft, Sun, Moon, Phone, MapPin } from 'lucide-react';
+import { User, Mail, Lock, Globe, ArrowRight, ArrowLeft, Sun, Moon, Phone, MapPin, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { supabase } from '../supabase'; // استدعاء ملف الاتصال بقاعدة البيانات
 
 const translations = {
   ar: {
@@ -14,9 +15,12 @@ const translations = {
     password: 'كلمة المرور',
     rememberMe: 'حفظ معلومات الدخول',
     registerBtn: 'إنشاء الحساب',
+    loading: 'جاري إنشاء الحساب...',
     hasAccount: 'لدي حساب بالفعل',
     loginLink: 'تسجيل الدخول',
-    other: 'أخرى...'
+    other: 'أخرى...',
+    successMsg: 'تم التسجيل بنجاح! سيتم توجيهك لاختيار نوع الحساب...',
+    errorMsg: 'حدث خطأ أثناء التسجيل. تأكد من صحة البيانات أو أن البريد غير مستخدم مسبقاً.'
   },
   en: {
     title: 'Create New Account',
@@ -29,9 +33,12 @@ const translations = {
     password: 'Password',
     rememberMe: 'Remember Me',
     registerBtn: 'Create Account',
+    loading: 'Creating account...',
     hasAccount: 'Already have an account?',
     loginLink: 'Sign In',
-    other: 'Other...'
+    other: 'Other...',
+    successMsg: 'Registration successful! Redirecting to account setup...',
+    errorMsg: 'Registration failed. Please check your details or try a different email.'
   },
   fr: {
     title: 'Créer un nouveau compte',
@@ -44,9 +51,12 @@ const translations = {
     password: 'Mot de passe',
     rememberMe: 'Se souvenir de moi',
     registerBtn: 'Créer un compte',
+    loading: 'Création du compte...',
     hasAccount: 'Vous avez déjà un compte ?',
     loginLink: 'Se connecter',
-    other: 'Autre...'
+    other: 'Autre...',
+    successMsg: 'Inscription réussie ! Redirection vers la configuration...',
+    errorMsg: 'Échec de l\'inscription. Vérifiez vos informations ou utilisez un autre e-mail.'
   }
 };
 
@@ -80,6 +90,10 @@ export default function Register() {
   const [selectedCountry, setSelectedCountry] = useState(countries[0]);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   
+  // حالات الأمان والاتصال بقاعدة البيانات
+  const [isLoading, setIsLoading] = useState(false);
+  const [authStatus, setAuthStatus] = useState({ type: '', message: '' });
+
   const t = translations[lang];
   const isRtl = lang === 'ar';
 
@@ -106,27 +120,56 @@ export default function Register() {
 
   const toggleTheme = () => setTheme(theme === 'light' ? 'dark' : 'light');
 
-  // دالة تنفيذ إنشاء الحساب والدخول
-  const handleRegisterSubmit = (e) => {
+  // دالة تنفيذ إنشاء الحساب الآمنة
+  const handleRegisterSubmit = async (e) => {
     e.preventDefault();
+    setIsLoading(true);
+    setAuthStatus({ type: '', message: '' });
     
-    // بناء كائن المستخدم لتخزينه وعرضه في الإعدادات ومعلومات الحساب كمدير
-    const userData = {
-      name: fullName,
+    const fullPhone = `${selectedCountry.dialCode} ${phoneNumber}`;
+
+    // إرسال البيانات إلى Supabase Auth للتسجيل الآمن
+    const { data, error } = await supabase.auth.signUp({
       email: email,
-      phone: `${selectedCountry.dialCode} ${phoneNumber}`,
-      country: selectedCountry.code.toUpperCase(), // لحفظ الدولة وتمريرها للإعدادات
-      role: 'admin',
-      jobCode: 'EMP-0001',
-      lang: lang,
-      permissions: { products: true, sales: true, employees: true }
-    };
+      password: password,
+      options: {
+        data: {
+          full_name: fullName,
+          phone: fullPhone,
+          country: selectedCountry.code.toUpperCase(),
+          lang: lang
+        }
+      }
+    });
 
-    // حفظ البيانات في LocalStorage ليقرأها MainLayout
-    localStorage.setItem('productDeskUser', JSON.stringify(userData));
+    if (error) {
+      setAuthStatus({ type: 'error', message: t.errorMsg });
+      setIsLoading(false);
+    } else {
+      setAuthStatus({ type: 'success', message: t.successMsg });
+      
+      // حفظ بيانات مبدئية لكي تستخدمها صفحة Onboarding لاحقاً
+      const userData = {
+        name: fullName,
+        email: email,
+        phone: fullPhone,
+        country: selectedCountry.code.toUpperCase(),
+        lang: lang,
+        jobCode: 'EMP-0001' // كود افتراضي
+      };
+      localStorage.setItem('productDeskUser', JSON.stringify(userData));
 
-    // التوجيه المباشر إلى الصفحة الرئيسية بعد إنشاء الحساب
-    navigate('/');
+      // تفريغ الحقول بعد النجاح
+      setFullName('');
+      setEmail('');
+      setPassword('');
+      setPhoneNumber('');
+
+      // توجيه المستخدم لصفحة الاختيار بعد 3 ثوانٍ
+      setTimeout(() => {
+        navigate('/onboarding');
+      }, 3000);
+    }
   };
 
   return (
@@ -165,6 +208,14 @@ export default function Register() {
               </select>
             </div>
           </div>
+
+          {/* عرض رسائل النجاح أو الخطأ */}
+          {authStatus.message && (
+            <div className={`mb-6 p-4 rounded-lg flex items-start gap-3 ${authStatus.type === 'error' ? 'bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400' : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'}`}>
+              {authStatus.type === 'error' ? <AlertCircle className="w-5 h-5 mt-0.5 flex-shrink-0" /> : <CheckCircle2 className="w-5 h-5 mt-0.5 flex-shrink-0" />}
+              <p className="text-sm font-medium leading-relaxed">{authStatus.message}</p>
+            </div>
+          )}
 
           <form className="space-y-5" onSubmit={handleRegisterSubmit}>
             
@@ -275,6 +326,7 @@ export default function Register() {
                   onChange={(e) => setPassword(e.target.value)}
                   className={`appearance-none block w-full px-3 py-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg shadow-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm transition-colors ${isRtl ? 'pr-10' : 'pl-10'}`}
                   dir="ltr"
+                  minLength="6"
                 />
               </div>
             </div>
@@ -298,9 +350,10 @@ export default function Register() {
             <div>
               <button
                 type="submit"
-                className="w-full flex justify-center py-2.5 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors"
+                disabled={isLoading}
+                className="w-full flex justify-center py-2.5 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
               >
-                {t.registerBtn}
+                {isLoading ? t.loading : t.registerBtn}
               </button>
             </div>
           </form>

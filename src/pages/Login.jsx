@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Mail, Lock, Globe, ArrowRight, ArrowLeft, Sun, Moon, Briefcase, Building2, User, Phone, Key, ChevronDown } from 'lucide-react';
+import { User, Mail, Lock, Globe, ArrowRight, ArrowLeft, Sun, Moon, Phone, MapPin, AlertCircle, CheckCircle2, Briefcase, Building2, Key } from 'lucide-react';
+import { supabase } from '../supabase'; // استدعاء ملف الاتصال بقاعدة البيانات
 
 const translations = {
   ar: {
     welcome: 'مرحباً بعودتك',
-    subtitle: 'قم بتسجيل الدخول للوصول إلى لوحة التحكم',
-    accountType: 'نوع الحساب',
+    subtitle: 'قم بتسجيل الدخول للوصول إلى حسابك',
+    accountType: 'نوع الدخول',
     adminRole: 'مدير / صاحب عمل',
     employeeRole: 'موظف',
     fullName: 'الاسم الكامل',
@@ -16,13 +17,16 @@ const translations = {
     password: 'كلمة المرور',
     rememberMe: 'حفظ معلومات الدخول',
     login: 'تسجيل الدخول',
-    noAccount: 'ليس لديك حساب مدير؟',
+    loading: 'جاري التحقق...',
+    noAccount: 'ليس لديك حساب؟',
     register: 'إنشاء حساب جديد',
+    errorMsg: 'البريد الإلكتروني أو كلمة المرور غير صحيحة.',
+    unverifiedMsg: 'يرجى تأكيد بريدك الإلكتروني أولاً قبل تسجيل الدخول.'
   },
   en: {
     welcome: 'Welcome Back',
-    subtitle: 'Log in to access your dashboard',
-    accountType: 'Account Type',
+    subtitle: 'Log in to access your account',
+    accountType: 'Login Type',
     adminRole: 'Admin / Owner',
     employeeRole: 'Employee',
     fullName: 'Full Name',
@@ -32,13 +36,16 @@ const translations = {
     password: 'Password',
     rememberMe: 'Remember Me',
     login: 'Sign In',
-    noAccount: "Don't have an admin account?",
+    loading: 'Signing in...',
+    noAccount: "Don't have an account?",
     register: 'Create new account',
+    errorMsg: 'Invalid email or password.',
+    unverifiedMsg: 'Please verify your email address before logging in.'
   },
   fr: {
     welcome: 'Bon retour',
-    subtitle: 'Connectez-vous pour accéder au tableau de bord',
-    accountType: 'Type de compte',
+    subtitle: 'Connectez-vous pour accéder à votre compte',
+    accountType: 'Type de connexion',
     adminRole: 'Administrateur / Propriétaire',
     employeeRole: 'Employé',
     fullName: 'Nom complet',
@@ -48,12 +55,14 @@ const translations = {
     password: 'Mot de passe',
     rememberMe: 'Se souvenir de moi',
     login: 'Se connecter',
-    noAccount: "Vous n'avez pas de compte admin ?",
+    loading: 'Connexion en cours...',
+    noAccount: "Vous n'avez pas de compte ?",
     register: 'Créer un compte',
+    errorMsg: 'E-mail ou mot de passe incorrect.',
+    unverifiedMsg: 'Veuillez vérifier votre e-mail avant de vous connecter.'
   }
 };
 
-// قائمة الدول باستخدام صور الأعلام لضمان ظهورها في كل الأجهزة
 const countries = [
   { code: 'dz', dialCode: '+213', name: 'Algeria' },
   { code: 'sa', dialCode: '+966', name: 'Saudi Arabia' },
@@ -81,9 +90,11 @@ export default function Login({ onLogin }) {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [inviteCode, setInviteCode] = useState('');
   
-  // حالات قائمة الدول المخصصة
+  // حالات الأمان وقائمة الدول
   const [selectedCountry, setSelectedCountry] = useState(countries[0]);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [authError, setAuthError] = useState('');
 
   const t = translations[lang];
   const isRtl = lang === 'ar';
@@ -98,7 +109,6 @@ export default function Login({ onLogin }) {
     else document.documentElement.classList.remove('dark');
   }, [theme]);
 
-  // إغلاق قائمة الدول عند النقر خارجها
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -111,25 +121,55 @@ export default function Login({ onLogin }) {
 
   const toggleTheme = () => setTheme(theme === 'light' ? 'dark' : 'light');
 
-  const handleLoginSubmit = (e) => {
+  // الدالة المرتبطة بـ Supabase مع التوجيه الذكي
+  const handleLoginSubmit = async (e) => {
     e.preventDefault();
+    setIsLoading(true);
+    setAuthError('');
     
-    const userData = {
-      name: role === 'employee' ? fullName : 'مدير النظام',
+    const { data, error } = await supabase.auth.signInWithPassword({
       email: email,
-      phone: role === 'employee' ? `${selectedCountry.dialCode} ${phoneNumber}` : '+213 555 000 000',
-      role: role,
-      jobCode: role === 'employee' ? inviteCode : 'EMP-0001',
+      password: password,
+    });
+
+    if (error) {
+      if (error.message.includes('Email not confirmed')) {
+        setAuthError(t.unverifiedMsg);
+      } else {
+        setAuthError(t.errorMsg);
+      }
+      setIsLoading(false);
+      return; 
+    }
+
+    const userMeta = data.user.user_metadata;
+    // إذا كان للمستخدم دور محفوظ في قاعدة البيانات نستخدمه، وإلا نستخدم الدور المختار من الواجهة
+    const userRole = userMeta?.role || role;
+
+    const userData = {
+      name: userMeta?.full_name || fullName || 'مدير النظام',
+      email: data.user.email,
+      phone: userMeta?.phone || (role === 'employee' ? `${selectedCountry.dialCode} ${phoneNumber}` : '+213 555 000 000'),
+      role: userRole,
+      jobCode: userMeta?.job_code || (role === 'employee' ? inviteCode : 'EMP-0001'),
       lang: lang,
-      permissions: role === 'admin' 
+      permissions: userRole === 'admin' 
         ? { products: true, sales: true, employees: true } 
         : { products: false, sales: true, employees: false } 
     };
 
     localStorage.setItem('productDeskUser', JSON.stringify(userData));
 
-    if (onLogin) onLogin(role);
-    navigate('/'); 
+    if (onLogin) onLogin(userRole);
+    
+    // ==========================================
+    // التوجيه الذكي بناءً على نوع الحساب
+    // ==========================================
+    if (userRole === 'admin' || userRole === 'employee') {
+      navigate('/admin'); // توجيه التجار والموظفين للوحة التحكم
+    } else {
+      navigate('/shop');  // توجيه المتسوقين لصفحة المتجر العام
+    }
   };
 
   return (
@@ -168,6 +208,14 @@ export default function Login({ onLogin }) {
               </select>
             </div>
           </div>
+
+          {/* عرض رسالة الخطأ إن وجدت */}
+          {authError && (
+            <div className="mb-6 p-4 rounded-lg flex items-start gap-3 bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400">
+              <AlertCircle className="w-5 h-5 mt-0.5 flex-shrink-0" />
+              <p className="text-sm font-medium leading-relaxed">{authError}</p>
+            </div>
+          )}
 
           <form className="space-y-5" onSubmit={handleLoginSubmit}>
             
@@ -224,13 +272,11 @@ export default function Login({ onLogin }) {
                   </div>
                 </div>
 
-                {/* حقل رقم الهاتف المخصص مع علم الدولة */}
                 <div>
                   <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1 transition-colors">
                     {t.phone}
                   </label>
                   <div className="mt-1 flex rounded-lg shadow-sm border border-slate-300 dark:border-slate-600 overflow-visible dark:bg-slate-700 transition-colors">
-                    
                     <div className="relative flex items-center" ref={dropdownRef}>
                       <button
                         type="button"
@@ -242,7 +288,6 @@ export default function Login({ onLogin }) {
                         <span className="text-sm font-medium text-slate-700 dark:text-slate-300 ml-1.5">{selectedCountry.dialCode}</span>
                       </button>
 
-                      {/* قائمة الدول المنسدلة */}
                       {isDropdownOpen && (
                         <div className="absolute top-full left-0 mt-1 w-48 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl z-[100] max-h-48 overflow-y-auto" dir="ltr">
                           {countries.map((c) => (
@@ -317,26 +362,24 @@ export default function Login({ onLogin }) {
               </div>
             </div>
 
-            {role === 'admin' && (
-              <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1 transition-colors">
-                  {t.password}
-                </label>
-                <div className="relative">
-                  <div className={`absolute inset-y-0 ${isRtl ? 'right-0 pr-3' : 'left-0 pl-3'} flex items-center pointer-events-none`}>
-                    <Lock className="h-5 w-5 text-slate-400" />
-                  </div>
-                  <input
-                    type="password"
-                    required
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className={`appearance-none block w-full px-3 py-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg shadow-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm transition-colors ${isRtl ? 'pr-10' : 'pl-10'}`}
-                    dir="ltr"
-                  />
+            <div>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1 transition-colors">
+                {t.password}
+              </label>
+              <div className="relative">
+                <div className={`absolute inset-y-0 ${isRtl ? 'right-0 pr-3' : 'left-0 pl-3'} flex items-center pointer-events-none`}>
+                  <Lock className="h-5 w-5 text-slate-400" />
                 </div>
+                <input
+                  type="password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className={`appearance-none block w-full px-3 py-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg shadow-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm transition-colors ${isRtl ? 'pr-10' : 'pl-10'}`}
+                  dir="ltr"
+                />
               </div>
-            )}
+            </div>
 
             <div className="flex items-center">
               <input
@@ -355,9 +398,10 @@ export default function Login({ onLogin }) {
             <div>
               <button
                 type="submit"
-                className="w-full flex justify-center py-2.5 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors"
+                disabled={isLoading}
+                className="w-full flex justify-center py-2.5 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
               >
-                {t.login}
+                {isLoading ? t.loading : t.login}
               </button>
             </div>
           </form>
@@ -385,6 +429,27 @@ export default function Login({ onLogin }) {
           )}
         </div>
       </div>
+      
+      {/* زر الدخول السريع للمطور */}
+      {import.meta.env.DEV && (
+        <button
+          type="button"
+          onClick={() => {
+            localStorage.setItem('productDeskUser', JSON.stringify({
+              name: 'مدير (وضع المطور)',
+              email: 'dev@test.com',
+              role: 'admin',
+              lang: 'ar',
+              permissions: { products: true, sales: true, employees: true }
+            }));
+            if (onLogin) onLogin('admin');
+            navigate('/admin'); // تم تعديل هذا التوجيه ليأخذك مباشرة للوحة التحكم
+          }}
+          className="w-full max-w-md mx-auto mt-4 flex justify-center py-2 px-4 border-2 border-dashed border-indigo-400 rounded-lg text-sm font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 transition-colors"
+        >
+          🚀 تجاوز الدخول (وضع المطور - لوحة التحكم)
+        </button>
+      )}
     </div>
   );
 }

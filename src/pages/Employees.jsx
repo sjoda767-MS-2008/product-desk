@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { Search, UserPlus, Mail, Phone, Shield, Trash2, Edit, X, Check, Building, Send, Key } from 'lucide-react';
+import { Search, UserPlus, Mail, Phone, Shield, Trash2, Edit, X, Check, Building, Send, Key, Save } from 'lucide-react';
 
 const translations = {
   ar: {
@@ -16,6 +16,7 @@ const translations = {
       permissions: 'تحديد الصلاحيات',
       perms: { products: 'تعديل المنتجات', sales: 'تعديل وتسجيل المبيعات', employees: 'إدارة الموظفين' },
       send: 'إرسال الدعوة',
+      save: 'حفظ التعديلات',
       cancel: 'إلغاء'
     },
     card: {
@@ -48,6 +49,7 @@ const translations = {
       permissions: 'Set Permissions',
       perms: { products: 'Manage Products', sales: 'Manage Sales', employees: 'Manage Employees' },
       send: 'Send Invite',
+      save: 'Save Changes',
       cancel: 'Cancel'
     },
     card: {
@@ -81,7 +83,6 @@ const initialPending = [
 ];
 
 export default function Employees() {
-  // سحب الإعدادات المركزية
   const { addNotification, globalSettings } = useOutletContext() || { globalSettings: { lang: 'ar', companyName: 'Product Desk', companyLogo: null } };
   
   const lang = globalSettings.lang === 'en' ? 'en' : 'ar';
@@ -95,6 +96,9 @@ export default function Employees() {
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [inviteForm, setInviteForm] = useState({ email: '', jobCode: '', permissions: { products: true, sales: true, employees: false } });
   
+  // حالة جديدة للتحكم في نافذة التعديل والموظف المحدد
+  const [editingEmployee, setEditingEmployee] = useState(null);
+
   const [simulatedEmail, setSimulatedEmail] = useState(null);
 
   const filteredEmployees = useMemo(() => {
@@ -121,6 +125,16 @@ export default function Employees() {
     
     setSimulatedEmail(newInvite);
     if(addNotification) addNotification('success', lang === 'ar' ? 'تم إرسال دعوة الانضمام بنجاح!' : 'Invitation sent successfully!');
+  };
+
+  // دالة جديدة لحفظ تعديلات الصلاحيات
+  const handleSavePermissions = (e) => {
+    e.preventDefault();
+    if (!editingEmployee) return;
+
+    setEmployees(employees.map(emp => emp.id === editingEmployee.id ? editingEmployee : emp));
+    setEditingEmployee(null);
+    if(addNotification) addNotification('success', lang === 'ar' ? 'تم تحديث الصلاحيات بنجاح!' : 'Permissions updated successfully!');
   };
 
   const handleDeleteEmployee = (id, name) => {
@@ -194,7 +208,11 @@ export default function Employees() {
                 </div>
               </div>
               <div className="p-4 bg-slate-50 dark:bg-slate-900/50 border-t border-slate-200 dark:border-slate-700 flex gap-2">
-                <button className="flex-1 py-2 text-xs font-bold text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors flex justify-center items-center gap-2">
+                {/* تمت إضافة onClick لفتح نافذة التعديل */}
+                <button 
+                  onClick={() => setEditingEmployee(emp)} 
+                  className="flex-1 py-2 text-xs font-bold text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors flex justify-center items-center gap-2"
+                >
                   <Edit className="w-3.5 h-3.5" /> {t.card.edit}
                 </button>
                 <button onClick={() => handleDeleteEmployee(emp.id, emp.name)} className="py-2 px-3 text-red-600 dark:text-red-400 bg-white dark:bg-slate-800 border border-red-200 dark:border-red-500/30 rounded-lg hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors flex justify-center items-center" title={t.card.delete}>
@@ -278,6 +296,52 @@ export default function Employees() {
         </div>
       )}
 
+      {/* نافذة تعديل صلاحيات موظف حالي */}
+      {editingEmployee && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden my-auto" dir={isRtl ? 'rtl' : 'ltr'}>
+            <div className="flex items-center justify-between p-5 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50">
+              <div>
+                <h3 className="font-bold text-lg text-slate-800 dark:text-white">{t.card.edit}</h3>
+                <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">{editingEmployee.name}</p>
+              </div>
+              <button onClick={() => setEditingEmployee(null)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors bg-white dark:bg-slate-800 p-1.5 rounded-lg border border-slate-200 dark:border-slate-700"><X className="w-5 h-5" /></button>
+            </div>
+            
+            <form onSubmit={handleSavePermissions} className="p-6 space-y-6">
+              <div>
+                <label className="block text-sm font-bold text-slate-800 dark:text-white mb-3">{t.form.permissions}</label>
+                <div className="space-y-3">
+                  {Object.entries(t.form.perms).map(([key, label]) => (
+                    <label key={key} className="flex items-center justify-between p-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 cursor-pointer hover:border-indigo-300 transition-colors">
+                      <span className="text-sm font-medium text-slate-700 dark:text-slate-300">{label}</span>
+                      <div className="relative">
+                        <input 
+                          type="checkbox" 
+                          className="sr-only" 
+                          checked={editingEmployee.permissions[key]} 
+                          onChange={(e) => setEditingEmployee({
+                            ...editingEmployee, 
+                            permissions: { ...editingEmployee.permissions, [key]: e.target.checked }
+                          })} 
+                        />
+                        <div className={`block w-10 h-6 rounded-full transition-colors ${editingEmployee.permissions[key] ? 'bg-indigo-600' : 'bg-slate-300 dark:bg-slate-600'}`}></div>
+                        <div className={`dot absolute ${isRtl ? 'right-1' : 'left-1'} top-1 bg-white w-4 h-4 rounded-full transition-transform ${editingEmployee.permissions[key] ? (isRtl ? 'transform -translate-x-4' : 'transform translate-x-4') : ''}`}></div>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div className="pt-2 flex gap-3">
+                <button type="button" onClick={() => setEditingEmployee(null)} className="flex-1 py-3 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-bold rounded-xl hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors">{t.form.cancel}</button>
+                <button type="submit" className="flex-[2] py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition-colors shadow-md shadow-indigo-500/30 flex justify-center items-center gap-2"><Save className="w-4 h-4" />{t.form.save}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* محاكاة شكل البريد الإلكتروني المرسل للموظف */}
       {simulatedEmail && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-md">
@@ -289,7 +353,6 @@ export default function Employees() {
             
             <div className="p-8 flex flex-col items-center text-center bg-white" dir={isRtl ? 'rtl' : 'ltr'}>
               <div className="w-16 h-16 bg-indigo-600 rounded-2xl flex items-center justify-center text-white mb-4 shadow-lg shadow-indigo-200 overflow-hidden">
-                {/* استخدام شعار الشركة من الإعدادات إذا كان متاحاً */}
                 {globalSettings.companyLogo ? (
                   <img src={globalSettings.companyLogo} alt="Logo" className="w-full h-full object-cover bg-white" />
                 ) : (

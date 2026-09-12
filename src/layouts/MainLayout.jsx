@@ -2,7 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
   LayoutDashboard, Package, ShoppingCart, 
-  Users, Settings, Menu, X, Bell, AlertTriangle, CheckCircle, Info, CheckCircle2, LogOut, Building
+  Users, Settings, Menu, X, Bell, AlertTriangle, CheckCircle, Info, CheckCircle2, LogOut, Building, ClipboardList, MonitorSmartphone, Store,
+  Truck, Layout
 } from 'lucide-react';
 
 const translations = {
@@ -10,13 +11,19 @@ const translations = {
     dashboard: 'الصفحة الرئيسية',
     products: 'المنتجات',
     sales: 'المبيعات',
+    orders: 'الطلبات',
+    landingPages: 'صفحات الهبوط',
+    shipping: 'شركات التوصيل',
     employees: 'إدارة الموظفين',
+    storeBuilder: 'تخصيص المتجر',
     settings: 'الإعدادات',
     notifications: 'الإشعارات',
     markAllRead: 'تحديد الكل كمقروء',
     noNotifications: 'لا توجد إشعارات جديدة',
     logout: 'تسجيل الخروج',
     confirmLogout: 'هل أنت متأكد أنك تريد تسجيل الخروج؟',
+    shop: 'السوق',
+    myStore: 'إدارة المتجر',
     profile: {
       accountInfo: 'معلومات الحساب',
       accountType: 'نوع الحساب:',
@@ -27,16 +34,22 @@ const translations = {
     }
   },
   en: {
-    dashboard: 'Home Page',
+    dashboard: 'Home',
     products: 'Products',
     sales: 'Sales',
+    orders: 'Orders',
+    landingPages: 'Landing Pages',
+    shipping: 'Shipping Companies',
     employees: 'Employees',
+    storeBuilder: 'Store Builder',
     settings: 'Settings',
     notifications: 'Notifications',
     markAllRead: 'Mark all as read',
     noNotifications: 'No new notifications',
     logout: 'Log Out',
     confirmLogout: 'Are you sure you want to log out?',
+    shop: 'Marketplace',
+    myStore: 'Store Management',
     profile: {
       accountInfo: 'Account Info',
       accountType: 'Account Type:',
@@ -44,26 +57,6 @@ const translations = {
       phone: 'Phone Number:',
       admin: 'Administrator',
       employee: 'Employee'
-    }
-  },
-  fr: {
-    dashboard: 'Accueil',
-    products: 'Produits',
-    sales: 'Ventes',
-    employees: 'Employés',
-    settings: 'Paramètres',
-    notifications: 'Notifications',
-    markAllRead: 'Tout marquer comme lu',
-    noNotifications: 'Aucune nouvelle notification',
-    logout: 'Se déconnecter',
-    confirmLogout: 'Êtes-vous sûr de vouloir vous déconnecter ?',
-    profile: {
-      accountInfo: 'Informations du compte',
-      accountType: 'Type de compte :',
-      email: 'Adresse e-mail :',
-      phone: 'Numéro de téléphone :',
-      admin: 'Administrateur',
-      employee: 'Employé'
     }
   }
 };
@@ -76,12 +69,9 @@ const globalInitialProducts = [
   { id: 1, name: 'سماعات رأس لاسلكية سوني', code: 'PRD-X9A2B', category: 'إلكترونيات', price: 350, netProfit: 100, stock: 45, sales: 120, lastSaleDate: Date.now() - 7200000, description: 'سماعات عازلة للضوضاء.', mainImage: 'https://images.unsplash.com/photo-1618366712010-f4ae9c647dcb?auto=format&fit=crop&w=400&q=80', extraImages: [], createdAt: Date.now() },
 ];
 
-// قمنا بإزالة prop (user) لأننا سنقرأ البيانات من التخزين المحلي مباشرة
 export default function MainLayout() {
-  // 1. جلب بيانات المستخدم المسجل من الذاكرة
   const storedUser = JSON.parse(localStorage.getItem('productDeskUser'));
 
-  // 2. تعيين حالة المستخدم بناءً على البيانات المحفوظة
   const [currentUser, setCurrentUser] = useState(storedUser || {
     name: 'مدير النظام',
     email: 'admin@productdesk.com',
@@ -94,7 +84,7 @@ export default function MainLayout() {
   const [globalSettings, setGlobalSettings] = useState({
     lang: currentUser.lang || 'ar',
     theme: 'light',
-    currency: '$',
+    currency: 'DA',
     companyName: 'Product Desk',
     companyLogo: null 
   });
@@ -102,7 +92,7 @@ export default function MainLayout() {
   const [products, setProducts] = useState(globalInitialProducts);
   const [notifications, setNotifications] = useState(initialNotifications);
   
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false); 
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   
@@ -120,16 +110,12 @@ export default function MainLayout() {
   }, [globalSettings.theme]);
 
   useEffect(() => {
-    const handleResize = () => setIsSidebarOpen(window.innerWidth >= 1024);
-    handleResize();
-    window.addEventListener('resize', handleResize);
     const handleClickOutside = (e) => {
       if (notificationsRef.current && !notificationsRef.current.contains(e.target)) setIsNotificationsOpen(false);
       if (profileRef.current && !profileRef.current.contains(e.target)) setIsProfileOpen(false);
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => {
-      window.removeEventListener('resize', handleResize);
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, []);
@@ -137,7 +123,6 @@ export default function MainLayout() {
   const addNotification = (type, text) => setNotifications(prev => [{ id: Date.now(), type, text, time: 'الآن', read: false }, ...prev]);
   const markAllAsRead = () => setNotifications(notifications.map(n => ({ ...n, read: true })));
   
-  // 3. برمجة زر تسجيل الخروج ليمسح الجلسة
   const handleLogout = () => { 
     if (window.confirm(t.confirmLogout)) {
       localStorage.removeItem('productDeskUser');
@@ -152,17 +137,22 @@ export default function MainLayout() {
   };
 
   const menuItems = [
-    { name: t.dashboard, icon: LayoutDashboard, path: '/', visible: true },
-    { name: t.products, icon: Package, path: '/products', visible: currentUser.role === 'admin' || currentUser.permissions.products },
-    { name: t.sales, icon: ShoppingCart, path: '/sales', visible: currentUser.role === 'admin' || currentUser.permissions.sales },
-    { name: t.employees, icon: Users, path: '/employees', visible: currentUser.role === 'admin' || currentUser.permissions.employees },
-    { name: t.settings, icon: Settings, path: '/settings', visible: true },
+    { name: t.dashboard, icon: LayoutDashboard, path: '/admin', visible: true },
+    { name: t.products, icon: Package, path: '/admin/products', visible: currentUser.role === 'admin' || currentUser.permissions.products },
+    { name: t.sales, icon: ShoppingCart, path: '/admin/sales', visible: currentUser.role === 'admin' || currentUser.permissions.sales },
+    { name: t.orders, icon: ClipboardList, path: '/admin/orders', visible: currentUser.role === 'admin' || currentUser.permissions.sales },
+    { name: t.storeBuilder, icon: MonitorSmartphone, path: '/admin/builder', visible: currentUser.role === 'admin' }, 
+    { name: t.landingPages, icon: Layout, path: '/admin/landings', visible: currentUser.role === 'admin' },
+    { name: t.shipping, icon: Truck, path: '/admin/shipping', visible: currentUser.role === 'admin' },
+    { name: t.employees, icon: Users, path: '/admin/employees', visible: currentUser.role === 'admin' || currentUser.permissions.employees },
+    { name: t.settings, icon: Settings, path: '/admin/settings', visible: true },
   ];
 
   return (
     <div dir={isRtl ? 'rtl' : 'ltr'} className="flex h-screen bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 font-sans overflow-hidden transition-colors duration-300">
       
-      <aside className={`fixed lg:relative inset-y-0 ${isRtl ? 'right-0' : 'left-0'} z-50 h-full bg-slate-900 text-white transition-all duration-300 ease-in-out ${isSidebarOpen ? 'w-64 translate-x-0' : `w-64 ${isRtl ? 'translate-x-full' : '-translate-x-full'} lg:w-0 lg:translate-x-0`} overflow-hidden shadow-xl lg:shadow-none`}>
+      {/* القائمة الجانبية: تدفع المحتوى بسلاسة دون طبقة ضبابية */}
+      <aside className={`bg-slate-900 text-white transition-all duration-300 ease-in-out flex-shrink-0 z-20 overflow-hidden ${isSidebarOpen ? 'w-64' : 'w-0'}`}>
         <div className="w-64 flex flex-col h-full">
           <div className="flex items-center justify-between p-4 border-b border-slate-700 h-16 flex-shrink-0">
             <div className="flex items-center gap-2 text-indigo-400">
@@ -173,19 +163,24 @@ export default function MainLayout() {
               )}
               <span className="text-xl font-bold truncate">{globalSettings.companyName}</span>
             </div>
-            <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden text-slate-400 hover:text-white"><X className="w-6 h-6" /></button>
+            {/* زر إغلاق القائمة من الداخل */}
+            <button onClick={() => setIsSidebarOpen(false)} className="text-slate-400 hover:text-white p-1 rounded-md hover:bg-slate-800">
+              <X className="w-5 h-5" />
+            </button>
           </div>
+          
           <nav className="p-4 space-y-1 overflow-y-auto flex-1 custom-scrollbar">
             {menuItems.filter(item => item.visible).map((item) => {
                 const isActive = location.pathname === item.path;
                 return (
-                  <Link key={item.path} to={item.path} onClick={() => window.innerWidth < 1024 && setIsSidebarOpen(false)} className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors whitespace-nowrap ${isActive ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-300 hover:bg-slate-800'}`}>
+                  <Link key={item.path} to={item.path} onClick={() => window.innerWidth < 768 && setIsSidebarOpen(false)} className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors whitespace-nowrap ${isActive ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-300 hover:bg-slate-800'}`}>
                     <item.icon className="w-5 h-5 flex-shrink-0" />
                     <span className="font-medium text-sm">{item.name}</span>
                   </Link>
                 );
             })}
           </nav>
+
           <div className="p-4 border-t border-slate-700 flex-shrink-0">
             <button onClick={handleLogout} className="flex items-center gap-3 px-3 py-2.5 w-full rounded-lg text-red-400 hover:text-red-300 hover:bg-slate-800 transition-colors whitespace-nowrap">
               <LogOut className="w-5 h-5 flex-shrink-0" />
@@ -195,13 +190,25 @@ export default function MainLayout() {
         </div>
       </aside>
 
-      <main className="flex-1 flex flex-col min-w-0 overflow-hidden transition-all duration-300">
-        <header className="bg-white dark:bg-slate-800 shadow-sm border-b border-slate-200 dark:border-slate-700 h-16 flex items-center justify-between px-4 lg:px-6 z-10 transition-colors duration-300 flex-shrink-0">
-          <div className="flex items-center">
-            <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"><Menu className="w-6 h-6" /></button>
+      <main className="flex-1 flex flex-col min-w-0 overflow-hidden transition-all duration-300 h-full">
+        <header className="relative bg-white dark:bg-slate-800 shadow-sm border-b border-slate-200 dark:border-slate-700 h-16 flex items-center justify-between px-4 lg:px-6 z-10 transition-colors duration-300 flex-shrink-0">
+          
+          <div className="flex items-center gap-4 z-10">
+            <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+              <Menu className="w-6 h-6" />
+            </button>
           </div>
-          <div className="flex items-center gap-3 sm:gap-4">
-            
+          
+          <div className="absolute left-1/2 -translate-x-1/2 hidden sm:flex items-center p-1 bg-slate-100 dark:bg-slate-900/50 rounded-lg border border-slate-200 dark:border-slate-700 transition-colors">
+            <div className="px-4 py-1.5 rounded-md text-sm font-bold bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm flex items-center gap-2 select-none">
+              <Store className="w-4 h-4" /> {t.myStore}
+            </div>
+            <Link to="/shop" className="px-4 py-1.5 rounded-md text-sm font-bold text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 transition-all flex items-center gap-2">
+              <ShoppingCart className="w-4 h-4" /> {t.shop}
+            </Link>
+          </div>
+          
+          <div className="flex items-center gap-3 sm:gap-4 z-10">
             <div className="relative" ref={notificationsRef}>
               <button onClick={() => {setIsNotificationsOpen(!isNotificationsOpen); setIsProfileOpen(false);}} className="relative p-2 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700">
                 <Bell className="w-5 h-5" />
@@ -254,10 +261,6 @@ export default function MainLayout() {
                       <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">{t.profile.email}</p>
                       <p className="text-sm font-medium text-slate-800 dark:text-slate-200 break-all">{currentUser.email}</p>
                     </div>
-                    <div>
-                      <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">{t.profile.phone}</p>
-                      <p className="text-sm font-medium text-slate-800 dark:text-slate-200" dir="ltr">{currentUser.phone}</p>
-                    </div>
                   </div>
                   <div className="p-3 bg-slate-50 dark:bg-slate-900/50 border-t border-slate-200 dark:border-slate-700">
                     <button onClick={handleLogout} className="w-full py-2 flex items-center justify-center gap-2 text-sm font-medium text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-500/10 rounded-lg transition-colors">
@@ -270,7 +273,7 @@ export default function MainLayout() {
           </div>
         </header>
 
-        <div className="flex-1 overflow-auto p-4 lg:p-6 bg-slate-50/50 dark:bg-slate-900/50">
+        <div className="flex-1 overflow-auto p-4 lg:p-6 bg-slate-50/50 dark:bg-slate-900/50 w-full h-full">
           <Outlet context={{ 
             addNotification, 
             products, setProducts, 
@@ -279,7 +282,8 @@ export default function MainLayout() {
           }} /> 
         </div>
       </main>
-      {isSidebarOpen && <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-40 lg:hidden transition-opacity" onClick={() => setIsSidebarOpen(false)} />}
+      
+      {/* تمت إزالة الطبقة الضبابية (Overlay) نهائياً */}
     </div>
   );
 }

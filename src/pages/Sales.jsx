@@ -16,7 +16,7 @@ const translations = {
     card: {
       unitPrice: 'سعر القطعة',
       qtySold: 'المباع',
-      totalRevenue: 'إجمالي المبيعات',
+      totalRevenue: 'إجمالي سعر المبيعات',
       netProfit: 'إجمالي الربح',
       lastSale: 'تاريخ آخر بيع',
       noSales: 'لم يتم البيع بعد',
@@ -188,10 +188,13 @@ export default function Sales() {
                   </div>
                 </div>
 
+                {/* تصحيح محاذاة الأرقام باستخدام span بدلاً من جعل السطر كله ltr */}
                 <div className="p-4 grid grid-cols-2 gap-4">
                   <div>
                     <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">{t.card.unitPrice}</p>
-                    <p className="font-bold text-slate-800 dark:text-white" dir="ltr">{product.price.toLocaleString()} {currency}</p>
+                    <p className="font-bold text-slate-800 dark:text-white">
+                      <span dir="ltr">{product.price.toLocaleString()} {currency}</span>
+                    </p>
                   </div>
                   <div>
                     <p className="text-xs text-slate-500 dark:text-slate-400 mb-1 flex items-center gap-1"><Package className="w-3 h-3"/> {t.card.qtySold}</p>
@@ -199,11 +202,15 @@ export default function Sales() {
                   </div>
                   <div className="bg-slate-50 dark:bg-slate-900/50 p-3 rounded-xl border border-slate-100 dark:border-slate-700/50">
                     <p className="text-xs text-slate-500 dark:text-slate-400 mb-1 flex items-center gap-1"><TrendingUp className="w-3 h-3"/> {t.card.totalRevenue}</p>
-                    <p className="font-bold text-slate-800 dark:text-white" dir="ltr">{totalRevenue.toLocaleString()} {currency}</p>
+                    <p className="font-bold text-slate-800 dark:text-white">
+                      <span dir="ltr">{totalRevenue.toLocaleString()} {currency}</span>
+                    </p>
                   </div>
                   <div className="bg-emerald-50 dark:bg-emerald-900/10 p-3 rounded-xl border border-emerald-100 dark:border-emerald-900/30">
                     <p className="text-xs text-emerald-600 dark:text-emerald-400 mb-1 flex items-center gap-1"><DollarSign className="w-3 h-3"/> {t.card.netProfit}</p>
-                    <p className="font-bold text-emerald-600 dark:text-emerald-400" dir="ltr">{totalNetProfit.toLocaleString()} {currency}</p>
+                    <p className="font-bold text-emerald-600 dark:text-emerald-400">
+                      <span dir="ltr">{totalNetProfit.toLocaleString()} {currency}</span>
+                    </p>
                   </div>
                 </div>
 
@@ -212,8 +219,8 @@ export default function Sales() {
                     <Calendar className="w-4 h-4" />
                     <span>{t.card.lastSale}:</span>
                   </div>
-                  <span className={`font-medium ${!product.lastSaleDate ? 'text-slate-400' : 'text-slate-700 dark:text-slate-300'}`} dir="ltr">
-                    {formatDate(product.lastSaleDate)}
+                  <span className={`font-medium ${!product.lastSaleDate ? 'text-slate-400' : 'text-slate-700 dark:text-slate-300'}`}>
+                    <span dir="ltr">{formatDate(product.lastSaleDate)}</span>
                   </span>
                 </div>
 
@@ -247,22 +254,28 @@ export default function Sales() {
                   </div>
                 </div>
 
-                <div className="p-4 grid grid-cols-2 sm:grid-cols-4 gap-4 w-full lg:flex-1 lg:h-full items-center">
-                  <div>
-                    <p className="text-[10px] text-slate-500 dark:text-slate-400 mb-0.5">{t.card.unitPrice}</p>
-                    <p className="font-bold text-sm text-slate-800 dark:text-white" dir="ltr">{product.price.toLocaleString()} {currency}</p>
+                <div className="p-4 grid grid-cols-2 sm:grid-cols-4 gap-4 w-full lg:flex-1 lg:h-full items-center justify-items-center">
+                  <div className="flex flex-col items-center text-center">
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 mb-1">{t.card.unitPrice}</p>
+                    <p className="font-bold text-sm text-slate-800 dark:text-white">
+                      <span dir="ltr">{product.price.toLocaleString()} {currency}</span>
+                    </p>
                   </div>
-                  <div>
-                    <p className="text-[10px] text-slate-500 dark:text-slate-400 mb-0.5 flex items-center gap-1"><Package className="w-3 h-3"/> {t.card.qtySold}</p>
+                  <div className="flex flex-col items-center text-center">
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 mb-1 flex items-center justify-center gap-1"><Package className="w-3 h-3"/> {t.card.qtySold}</p>
                     <p className="font-bold text-indigo-600 dark:text-indigo-400 text-sm">{product.sales}</p>
                   </div>
-                  <div>
-                    <p className="text-[10px] text-slate-500 dark:text-slate-400 mb-0.5 flex items-center gap-1"><TrendingUp className="w-3 h-3"/> {t.card.totalRevenue}</p>
-                    <p className="font-bold text-slate-800 dark:text-white text-sm" dir="ltr">{totalRevenue.toLocaleString()} {currency}</p>
+                  <div className="flex flex-col items-center text-center">
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 mb-1 flex items-center justify-center gap-1"><TrendingUp className="w-3 h-3"/> {t.card.totalRevenue}</p>
+                    <p className="font-bold text-slate-800 dark:text-white text-sm">
+                      <span dir="ltr">{totalRevenue.toLocaleString()} {currency}</span>
+                    </p>
                   </div>
-                  <div>
-                    <p className="text-[10px] text-emerald-600 dark:text-emerald-400 mb-0.5 flex items-center gap-1"><DollarSign className="w-3 h-3"/> {t.card.netProfit}</p>
-                    <p className="font-bold text-emerald-600 dark:text-emerald-400 text-sm" dir="ltr">{totalNetProfit.toLocaleString()} {currency}</p>
+                  <div className="flex flex-col items-center text-center">
+                    <p className="text-[11px] text-emerald-600 dark:text-emerald-400 mb-1 flex items-center justify-center gap-1"><DollarSign className="w-3 h-3"/> {t.card.netProfit}</p>
+                    <p className="font-bold text-emerald-600 dark:text-emerald-400 text-sm">
+                      <span dir="ltr">{totalNetProfit.toLocaleString()} {currency}</span>
+                    </p>
                   </div>
                 </div>
 
@@ -298,7 +311,9 @@ export default function Sales() {
                  <img src={sellingProduct.mainImage} className="w-16 h-16 rounded-lg object-cover border border-slate-200 dark:border-slate-700" />
                  <div>
                    <p className="font-bold text-slate-800 dark:text-white line-clamp-1">{sellingProduct.name}</p>
-                   <p className="text-sm text-slate-500 dark:text-slate-400" dir="ltr">{t.card.unitPrice}: <span className="font-bold text-indigo-600 dark:text-indigo-400">{sellingProduct.price.toLocaleString()} {currency}</span></p>
+                   <p className="text-sm text-slate-500 dark:text-slate-400">
+                     {t.card.unitPrice}: <span className="font-bold text-indigo-600 dark:text-indigo-400 px-1" dir="ltr">{sellingProduct.price.toLocaleString()} {currency}</span>
+                   </p>
                  </div>
               </div>
               <div className="mb-6">
